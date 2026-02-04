@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Sản Phẩm - CRUD</title>
+    <style>
+        /* --- CSS Cơ bản & Reset --- */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; }
+        * { box-sizing: border-box; }
+
+        /* --- Container --- */
+        .container { max-width: 1200px; margin: 0 auto; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; padding-bottom: 20px;}
+
+        /* --- Form Khu vực nhập liệu --- */
+        .form-container { padding: 20px; background-color: #e0f2fe; border-bottom: 1px solid #bae6fd; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-size: 12px; font-weight: 600; margin-bottom: 5px; color: #0369a1; }
+        .form-control { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; outline: none; }
+        .form-actions { grid-column: 1 / -1; display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
+
+        /* --- Buttons --- */
+        .btn { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 13px; transition: 0.2s; }
+        .btn-primary { background-color: #2563eb; color: white; } /* Save/Add */
+        .btn-primary:hover { background-color: #1d4ed8; }
+        .btn-secondary { background-color: #64748b; color: white; } /* Cancel */
+        .btn-warning { background-color: #f59e0b; color: white; } /* Edit */
+        .btn-danger { background-color: #ef4444; color: white; } /* Delete */
+        .btn-success { background-color: #22c55e; color: white; } /* Restore */
+
+        /* --- Table Styles --- */
+        .table-wrapper { overflow-x: auto; max-height: 70vh; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        thead th { background-color: #f9fafb; color: #6b7280; padding: 12px 16px; text-align: left; border-bottom: 2px solid #e5e7eb; position: sticky; top: 0; z-index: 10; }
+        tbody tr { border-bottom: 1px solid #f3f4f6; transition: background-color 0.2s; }
+        tbody tr:hover { background-color: #f9fafb; }
+        td { padding: 12px 16px; vertical-align: middle; color: #374151; }
+
+        /* --- Custom Columns --- */
+        .badge-id { background-color: #dbeafe; color: #2563eb; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+        .price-text { color: #16a34a; font-weight: 700; }
+        .desc-text { color: #6b7280; max-width: 250px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .category-wrap { display: flex; align-items: center; gap: 8px; }
+        .category-img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid #e5e7eb; }
+        
+        /* --- Soft Delete Style --- */
+        .row-deleted { background-color: #f3f4f6 !important; opacity: 0.6; }
+        .row-deleted .product-title, 
+        .row-deleted .price-text,
+        .row-deleted .desc-text { text-decoration: line-through; color: #9ca3af; }
+
+        /* --- Action Buttons in Row --- */
+        .action-buttons { display: flex; gap: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="form-container">
+        <input type="hidden" id="productId"> <div class="form-group">
+            <label for="productTitle">Tên sản phẩm</label>
+            <input type="text" id="productTitle" class="form-control" placeholder="Nhập tên sản phẩm...">
+        </div>
+        <div class="form-group">
+            <label for="productPrice">Giá ($)</label>
+            <input type="number" id="productPrice" class="form-control" placeholder="0">
+        </div>
+        <div class="form-group">
+            <label for="productCat">Danh mục</label>
+            <select id="productCat" class="form-control">
+                <option value="Clothes">Clothes</option>
+                <option value="Electronics">Electronics</option>
+                <option value="Shoes">Shoes</option>
+                <option value="Miscellaneous">Miscellaneous</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="productDesc">Mô tả</label>
+            <input type="text" id="productDesc" class="form-control" placeholder="Mô tả ngắn...">
+        </div>
+        <div class="form-group">
+            <label for="productComment">Ghi chú (Comments)</label>
+            <input type="text" id="productComment" class="form-control" placeholder="Nhập ghi chú...">
+        </div>
+
+        <div class="form-actions">
+            <button class="btn btn-secondary" onclick="resetForm()">Hủy / Làm mới</button>
+            <button class="btn btn-primary" onclick="saveProduct()">Lưu sản phẩm</button>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="productsTable">
+            <thead>
+                <tr>
+                    <th width="80">ID</th>
+                    <th width="250">Sản phẩm</th>
+                    <th width="100">Giá</th>
+                    <th>Mô tả</th>
+                    <th>Ghi chú (Comment)</th> <th width="150">Danh mục</th>
+                    <th width="140">Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // 1. Dữ liệu gốc (Đã được chuyển đổi sang biến let để có thể thay đổi)
+    let productsData = [
+      { "id": 160, "title": "External Hard Drive", "price": 890, "description": "High-capacity storage.", "category": { "name": "Electronics", "image": "https://i.imgur.com/ZANVnHE.jpeg" }, "comments": "Hàng bán chạy" },
+      { "id": 187, "title": "Fire Red Sport Sneakers", "price": 95, "description": "Bold red sneakers.", "category": { "name": "Shoes", "image": "https://i.imgur.com/qNOjJje.jpeg" }, "comments": "" },
+      { "id": 189, "title": "Minimalist Smartwatch", "price": 150, "description": "Stay connected.", "category": { "name": "Electronics", "image": "https://i.imgur.com/ZANVnHE.jpeg" }, "comments": "Đang giảm giá" },
+      { "id": 195, "title": "White T-Shirt", "price": 25, "description": "Clean white t-shirt.", "category": { "name": "Clothes", "image": "https://i.imgur.com/QkIa5tT.jpeg" }, "comments": "" },
+      { "id": 245, "title": "Iphone 15", "price": 1200, "description": "Apple Device", "category": { "name": "Electronics", "image": "https://placeimg.com/640/480/tech" }, "comments": "New arrival" }
+    ];
+
+    // *Lưu ý*: Dữ liệu trên tôi đã rút gọn bớt để demo cho gọn file. 
+    // Trong bài làm thực tế, bạn có thể paste lại mảng productsData đầy đủ của bạn vào đây.
+
+    // Hàm khởi tạo: Thêm thuộc tính isDeleted: false cho dữ liệu cũ chưa có
+    productsData = productsData.map(item => ({
+        ...item,
+        isDeleted: item.isDeleted || false, // Nếu chưa có thì set là false
+        comments: item.comments || "" // Đảm bảo có trường comments
+    }));
+
+    const tableBody = document.querySelector('#productsTable tbody');
+
+    // --- 2. HÀM RENDER (READ) ---
+    function renderTable() {
+        let html = '';
+        // Sắp xếp ID giảm dần để thấy cái mới nhất
+        const sortedData = [...productsData].sort((a, b) => parseInt(b.id) - parseInt(a.id));
+
+        sortedData.forEach(item => {
+            // Kiểm tra trạng thái xóa mềm để thêm class CSS
+            const rowClass = item.isDeleted ? 'row-deleted' : '';
+            const catName = item.category?.name || 'Unknown';
+            const catImg = item.category?.image || 'https://via.placeholder.com/30';
+            
+            // Nếu đã xóa thì nút bấm sẽ là "Khôi phục", ngược lại là "Sửa/Xóa"
+            let actionButtons = '';
+            if (item.isDeleted) {
+                actionButtons = `<button class="btn btn-success" onclick="undoDelete('${item.id}')">Khôi phục</button>`;
+            } else {
+                actionButtons = `
+                    <button class="btn btn-warning" onclick="editProduct('${item.id}')">Sửa</button>
+                    <button class="btn btn-danger" onclick="softDelete('${item.id}')">Xóa</button>
+                `;
+            }
+
+            html += `
+                <tr class="${rowClass}">
+                    <td><span class="badge-id">${item.id}</span></td>
+                    <td>
+                        <div style="font-weight:600" class="product-title">${item.title}</div>
+                    </td>
+                    <td><span class="price-text">$${item.price}</span></td>
+                    <td><div class="desc-text">${item.description}</div></td>
+                    <td><div style="font-style:italic; color:#555;">${item.comments}</div></td>
+                    <td>
+                        <div class="category-wrap">
+                            <img src="${catImg}" class="category-img" alt="">
+                            <span>${catName}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            ${actionButtons}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        tableBody.innerHTML = html;
+    }
+
+    // --- 3. HÀM TẠO ID MỚI (AUTO INCREMENT STRING) ---
+    function generateNewId() {
+        if (productsData.length === 0) return "1";
+        // Tìm Max ID (ép kiểu về số nguyên để so sánh chính xác)
+        const maxId = Math.max(...productsData.map(p => parseInt(p.id) || 0));
+        // Trả về Max + 1 dưới dạng Chuỗi (String) theo yêu cầu
+        return (maxId + 1).toString();
+    }
+
+    // --- 4. HÀM LƯU (CREATE & UPDATE) ---
+    function saveProduct() {
+        const idInput = document.getElementById('productId').value;
+        const title = document.getElementById('productTitle').value.trim();
+        const price = parseFloat(document.getElementById('productPrice').value) || 0;
+        const category = document.getElementById('productCat').value;
+        const desc = document.getElementById('productDesc').value.trim();
+        const comment = document.getElementById('productComment').value.trim();
+
+        if (!title) {
+            alert("Vui lòng nhập tên sản phẩm!");
+            return;
+        }
+
+        // Ảnh giả lập theo category
+        let imgUrl = "https://placehold.co/600x400";
+        if (category === "Clothes") imgUrl = "https://i.imgur.com/QkIa5tT.jpeg";
+        if (category === "Electronics") imgUrl = "https://i.imgur.com/ZANVnHE.jpeg";
+        if (category === "Shoes") imgUrl = "https://i.imgur.com/qNOjJje.jpeg";
+
+        if (idInput) {
+            // --- UPDATE (SỬA) ---
+            // Tìm index của sản phẩm cần sửa
+            const index = productsData.findIndex(p => p.id == idInput); // So sánh lỏng (==) vì id là string/number
+            if (index !== -1) {
+                productsData[index].title = title;
+                productsData[index].price = price;
+                productsData[index].description = desc;
+                productsData[index].category.name = category;
+                productsData[index].category.image = imgUrl;
+                productsData[index].comments = comment; // Cập nhật comment
+                productsData[index].updatedAt = new Date().toISOString();
+                alert("Cập nhật thành công!");
+            }
+        } else {
+            // --- CREATE (THÊM MỚI) ---
+            const newId = generateNewId();
+            const newProduct = {
+                id: newId, // ID là chuỗi
+                title: title,
+                slug: title.toLowerCase().replace(/ /g, '-'),
+                price: price,
+                description: desc,
+                category: {
+                    id: Math.floor(Math.random() * 10),
+                    name: category,
+                    image: imgUrl
+                },
+                images: [imgUrl],
+                comments: comment, // Thêm comment khi tạo mới
+                creationAt: new Date().toISOString(),
+                isDeleted: false // Mặc định chưa xóa
+            };
+            productsData.push(newProduct);
+            alert(`Đã thêm sản phẩm mới với ID: ${newId}`);
+        }
+
+        resetForm();
+        renderTable();
+    }
+
+    // --- 5. HÀM CHUẨN BỊ EDIT ---
+    function editProduct(id) {
+        // Tìm sản phẩm
+        const product = productsData.find(p => p.id == id);
+        if (!product) return;
+
+        // Đẩy dữ liệu lên form
+        document.getElementById('productId').value = product.id;
+        document.getElementById('productTitle').value = product.title;
+        document.getElementById('productPrice').value = product.price;
+        document.getElementById('productDesc').value = product.description;
+        document.getElementById('productComment').value = product.comments || "";
+        
+        // Chọn đúng danh mục
+        const catSelect = document.getElementById('productCat');
+        if (product.category && product.category.name) {
+            catSelect.value = product.category.name;
+        }
+
+        // Đổi nút lưu thành màu cam để biết đang sửa (Optional UI trick)
+        document.querySelector('.btn-primary').innerText = "Cập nhật";
+        document.querySelector('.btn-primary').classList.add('btn-warning');
+        
+        // Scroll lên form
+        document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // --- 6. HÀM XÓA MỀM (DELETE) ---
+    function softDelete(id) {
+        if (!confirm("Bạn có chắc muốn xóa sản phẩm này không? (Xóa mềm)")) return;
+
+        const index = productsData.findIndex(p => p.id == id);
+        if (index !== -1) {
+            productsData[index].isDeleted = true; // Chuyển cờ thành true
+            renderTable();
+        }
+    }
+
+    // --- 7. HÀM KHÔI PHỤC (UNDO DELETE) ---
+    function undoDelete(id) {
+        const index = productsData.findIndex(p => p.id == id);
+        if (index !== -1) {
+            productsData[index].isDeleted = false; // Trả lại trạng thái
+            renderTable();
+        }
+    }
+
+    // --- HÀM RESET FORM ---
+    function resetForm() {
+        document.getElementById('productId').value = '';
+        document.getElementById('productTitle').value = '';
+        document.getElementById('productPrice').value = '';
+        document.getElementById('productDesc').value = '';
+        document.getElementById('productComment').value = '';
+        document.getElementById('productCat').selectedIndex = 0;
+
+        // Reset nút về trạng thái Thêm mới
+        const btn = document.querySelector('.form-actions .btn-primary'); // Nút Lưu
+        btn.innerText = "Lưu sản phẩm";
+        btn.classList.remove('btn-warning');
+    }
+
+    // Chạy lần đầu
+    renderTable();
+
+</script>
+
+</body>
+</html>
